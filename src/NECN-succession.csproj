@@ -37,6 +37,7 @@
   
   <ItemGroup>
     <Reference Include="Landis.Library.Climate-v5">
+      <HintPath>..\..\build\extensions\Landis.Library.Climate-v5.dll</HintPath>
     </Reference>
     <Reference Include="Landis.Library.InitialCommunity.Universal">
       <HintPath>..\..\build\extensions\Landis.Library.InitialCommunity.Universal.dll</HintPath>
@@ -54,6 +55,7 @@
       <HintPath>..\..\build\extensions\Landis.Library.UniversalCohorts-v1.dll</HintPath>
     </Reference>
 		<Reference Include="MathNet.Numerics">
+      <HintPath>..\..\build\extensions\MathNet.Numerics.dll</HintPath>
 		</Reference>  
 </ItemGroup>
 </Project>
