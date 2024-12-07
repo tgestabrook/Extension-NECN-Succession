@@ -200,7 +200,7 @@ namespace Landis.Extension.Succession.NECN
                     }
                 }
 
-                SiteVars.FineFuels[site] = (SiteVars.SurfaceStructural[site].Carbon + SiteVars.SurfaceMetabolic[site].Carbon) * 2.0;
+                SiteVars.FineFuels[site] = (SiteVars.SurfaceStructural[site].Carbon + SiteVars.SurfaceMetabolic[site].Carbon + SiteVars.SurfaceDeadwood[site].Carbon) * 2.0;
             }
 
 
