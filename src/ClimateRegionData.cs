@@ -12,10 +12,49 @@ namespace Landis.Extension.Succession.NECN
     {
 
         public static Landis.Library.Parameters.Ecoregions.AuxParm<int> ActiveSiteCount;
-        public static Landis.Library.Parameters.Ecoregions.AuxParm<double> AnnualNDeposition;    
-        public static Landis.Library.Parameters.Ecoregions.AuxParm<double[]> MonthlyNDeposition; 
+        public static Landis.Library.Parameters.Ecoregions.AuxParm<double> AnnualNDeposition;
+        public static Landis.Library.Parameters.Ecoregions.AuxParm<double[]> MonthlyNDeposition;
         public static Landis.Library.Parameters.Ecoregions.AuxParm<AnnualClimate> AnnualClimate;
         public static Landis.Library.Parameters.Ecoregions.AuxParm<AnnualClimate> AnnualClimateSpinup;
+
+        public class ClimateRegionAccumulator
+        {
+            private readonly double[] annualNDeposition;
+            private readonly double[][] monthlyNDeposition;
+
+            public ClimateRegionAccumulator(int ecoregionCount)
+            {
+                annualNDeposition = new double[ecoregionCount];
+                monthlyNDeposition = new double[ecoregionCount][];
+
+                for (int i = 0; i < ecoregionCount; i++)
+                {
+                    monthlyNDeposition[i] = new double[12];
+                }
+            }
+
+            public void Accumulate(IEcoregion ecoregion, int month, double deposition)
+            {
+                int index = ecoregion.Index;
+                annualNDeposition[index] += deposition;
+                monthlyNDeposition[index][month] += deposition;
+            }
+
+            public void Reduce()
+            {
+                foreach (var ecoregion in PlugIn.ModelCore.Ecoregions.Where(x => x.Active))
+                {
+                    ClimateRegionData.AnnualNDeposition[ecoregion] += annualNDeposition[ecoregion.Index];
+                    double[] localMonthlyNDeposition = monthlyNDeposition[ecoregion.Index];
+                    double[] sharedMonthlyNDeposition = ClimateRegionData.MonthlyNDeposition[ecoregion];
+
+                    for (int month = 0; month < 12; month++)
+                    {
+                        sharedMonthlyNDeposition[month] += localMonthlyNDeposition[month];
+                    }
+                }
+            }
+        }
 
         //---------------------------------------------------------------------
         // NOTE:  Climate data year index is 1-based
@@ -26,7 +65,7 @@ namespace Landis.Extension.Succession.NECN
             AnnualClimateSpinup = new Landis.Library.Parameters.Ecoregions.AuxParm<AnnualClimate>(PlugIn.ModelCore.Ecoregions);
             MonthlyNDeposition = new Landis.Library.Parameters.Ecoregions.AuxParm<double[]>(PlugIn.ModelCore.Ecoregions);
             AnnualNDeposition = new Landis.Library.Parameters.Ecoregions.AuxParm<double>(PlugIn.ModelCore.Ecoregions);
-            
+
             foreach (ActiveSite site in PlugIn.ModelCore.Landscape)
             {
                 IEcoregion ecoregion = PlugIn.ModelCore.Ecoregion[site];
@@ -50,7 +89,7 @@ namespace Landis.Extension.Succession.NECN
 
         //---------------------------------------------------------------------
         // Generates new climate parameters for all ecoregions at an annual time step.
-        
+
         public static void SetAllEcoregionsFutureAnnualClimate(int year)
         {
             // grab the year's future climate

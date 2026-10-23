@@ -11,6 +11,7 @@ using Landis.Library.Climate;
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
+using System.Threading.Tasks;
 
 
 namespace Landis.Extension.Succession.NECN
@@ -22,6 +23,7 @@ namespace Landis.Extension.Succession.NECN
         private static ICore modelCore;
         public static IInputParameters Parameters;
         //public static double[] ShadeLAI;
+        [ThreadStatic]
         public static double AnnualWaterBalance;
 
         public static string SoilCarbonMapNames = null;
@@ -210,7 +212,22 @@ namespace Landis.Extension.Succession.NECN
             SpeciesBySerotiny = new int[ModelCore.Species.Count];
             SpeciesBySeed = new int[ModelCore.Species.Count];
 
-            base.Run();
+            foreach (IEcoregion ecoregion in ModelCore.Ecoregions)
+            {
+                ClimateRegionData.AnnualNDeposition[ecoregion] = 0.0;
+                ClimateRegionData.MonthlyNDeposition[ecoregion] = new double[12];
+            }
+
+            ClimateRegionData.ClimateRegionAccumulator localAccumulator = new ClimateRegionData.ClimateRegionAccumulator(ModelCore.Ecoregions.Count);
+
+            // Parallelize the site-level succession updates.  Each active site has its own cohort and soil state,
+            // so growth is safe to run concurrently as long as the shared month/year tracking remains thread-local.
+            Parallel.ForEach(ModelCore.Landscape.ActiveSites, site =>
+            {
+                Main.Run(site, Timestep, true, localAccumulator);
+            });
+
+            localAccumulator.Reduce();
 
             if (Timestep > 0)
                 ClimateRegionData.SetAllEcoregionsFutureAnnualClimate(ModelCore.CurrentTime);
@@ -377,7 +394,16 @@ namespace Landis.Extension.Succession.NECN
                                            int? successionTimestep)
         {
             Main.Run(site, years, successionTimestep.HasValue);
+        }
 
+        public void AgeCohortsParallel(ushort years, int? successionTimestep)
+        {
+            var activeSites = new List<ActiveSite>(ModelCore.Landscape.ActiveSites);
+
+            Parallel.ForEach(activeSites, site =>
+            {
+                Main.Run(site, years, successionTimestep.HasValue);
+            });
         }
         //---------------------------------------------------------------------
         // <summary>
@@ -572,95 +598,7 @@ namespace Landis.Extension.Succession.NECN
                 SpeciesBySerotiny[species.Index]++;
             else if (reproductionType == "resprout")
                 SpeciesByResprout[species.Index]++;
-            else if (reproductionType == "seed")
-                SpeciesBySeed[species.Index]++;
-
-        }
-        //---------------------------------------------------------------------
-        /// <summary>
-        /// Determines if a species can establish on a site.
-        /// This is a Delegate method to base succession.
-        /// </summary>
-        public bool Establish(ISpecies species, ActiveSite site)
-        {
-            double establishProbability = Establishment.Calculate(species, site);
-
-            var establishment = modelCore.GenerateUniform() < establishProbability;
-            return establishment;
-        }
-
-        //---------------------------------------------------------------------
-
-        /// <summary>
-        /// Determines if a species can establish on a site.
-        /// This is a Delegate method to base succession.
-        /// </summary>
-        public bool PlantingEstablish(ISpecies species, ActiveSite site)
-        {
-            IEcoregion ecoregion = modelCore.Ecoregion[site];
-            double establishProbability = Establishment.Calculate(species, site);
-
-            return establishProbability > 0.0;
-        }
-
-        //---------------------------------------------------------------------
-
-        public CohortData ComputeCohortData(ushort age, int biomass, double anpp, ExpandoObject parametersToAdd)
-        {
-            IDictionary<string, object> tempObject = parametersToAdd;
-
-            int newBiomass = Convert.ToInt32(tempObject["LeafBiomass"]) + Convert.ToInt32(tempObject["WoodBiomass"]);
-
-            return new CohortData(age, newBiomass, anpp, parametersToAdd);
-        }
-
-        //---------------------------------------------------------------------
-
-        /// <summary>
-        /// Determines if there is a mature cohort at a site.
-        /// This is a Delegate method to base succession.
-        /// </summary>
-        public bool MaturePresent(ISpecies species, ActiveSite site)
-        {
-            return SiteVars.Cohorts[site].IsMaturePresent(species);
-        }
-
-        public override void InitializeSites(string initialCommunitiesText, string initialCommunitiesMap, ICore modelCore)
-        {
-            ModelCore.UI.WriteLine("   Loading initial communities from file \"{0}\" ...", initialCommunitiesText);
-
-            Landis.Library.InitialCommunities.Universal.DatasetParser parser = new Landis.Library.InitialCommunities.Universal.DatasetParser(Timestep, ModelCore.Species, additionalCohortParameters, initialCommunitiesText);
-            Landis.Library.InitialCommunities.Universal.IDataset communities = Data.Load<Landis.Library.InitialCommunities.Universal.IDataset>(initialCommunitiesText, parser);
-
-            ModelCore.UI.WriteLine("   Reading initial communities map \"{0}\" ...", initialCommunitiesMap);
-            IInputRaster<UIntPixel> map;
-            map = ModelCore.OpenRaster<UIntPixel>(initialCommunitiesMap);
-            using (map)
-            {
-                UIntPixel pixel = map.BufferPixel;
-                foreach (Site site in ModelCore.Landscape.AllSites)
-                {
-                    map.ReadBufferPixel();
-                    uint mapCode = pixel.MapCode.Value;
-                    if (!site.IsActive)
-                        continue;
-
-                    ActiveSite activeSite = (ActiveSite)site;
-                    SiteVars.MineralN[site] = Parameters.InitialMineralN;
-
-                    initialCommunity = communities.Find(mapCode);
-                    if (initialCommunity == null)
-                    {
-                        SiteVars.Cohorts[site] = new SiteCohorts();
-                    }
-                    else
-                    {
-                        InitializeSite(activeSite);
-                    }
-
-                }
-            }
         }
     }
-    }
+}
 

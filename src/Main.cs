@@ -6,6 +6,7 @@ using Landis.Library.UniversalCohorts;
 using System.Collections.Generic;
 using Landis.Library.Climate;
 using System.Linq;
+using System.Threading;
 
 
 namespace Landis.Extension.Succession.NECN
@@ -15,8 +16,11 @@ namespace Landis.Extension.Succession.NECN
     /// </summary>
     public class Main
     {
+        [ThreadStatic]
         public static int Year;
+        [ThreadStatic]
         public static int Month;
+        [ThreadStatic]
         public static int MonthCnt;
 
         /// <summary>
@@ -26,6 +30,14 @@ namespace Landis.Extension.Succession.NECN
         public static ISiteCohorts Run(ActiveSite site,
                                        int         years,
                                        bool        isSuccessionTimeStep)
+        {
+            return Run(site, years, isSuccessionTimeStep, null);
+        }
+
+        public static ISiteCohorts Run(ActiveSite site,
+                                       int         years,
+                                       bool        isSuccessionTimeStep,
+                                       ClimateRegionData.ClimateRegionAccumulator accumulator)
         {
             
             SiteCohorts siteCohorts = SiteVars.Cohorts[site];
@@ -90,8 +102,16 @@ namespace Landis.Extension.Succession.NECN
                         throw new System.ApplicationException(mesg);
                     }
 
-                    ClimateRegionData.MonthlyNDeposition[ecoregion][Month] = monthlyNdeposition;
-                    ClimateRegionData.AnnualNDeposition[ecoregion] += monthlyNdeposition;
+                    if (accumulator != null)
+                    {
+                        accumulator.Accumulate(ecoregion, Month, monthlyNdeposition);
+                    }
+                    else
+                    {
+                        ClimateRegionData.MonthlyNDeposition[ecoregion][Month] = monthlyNdeposition;
+                        ClimateRegionData.AnnualNDeposition[ecoregion] += monthlyNdeposition;
+                    }
+
                     SiteVars.MineralN[site] += monthlyNdeposition;
                     //PlugIn.ModelCore.UI.WriteLine("Ndeposition={0},MineralN={1:0.00}.", monthlyNdeposition, SiteVars.MineralN[site]);
 
