@@ -11,6 +11,8 @@ using Landis.Library.Climate;
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
+using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 
 
@@ -599,6 +601,26 @@ namespace Landis.Extension.Succession.NECN
             else if (reproductionType == "resprout")
                 SpeciesByResprout[species.Index]++;
         }
+
+        public override void InitializeSites(string initialCommunities, string initialCommunitiesMap, ICore modelCore)
+        {
+            // Newer Landis.Library.Succession packages require this override explicitly.
+            // If the base library provides a concrete implementation, invoke it;
+            // otherwise, keep the NECN extension initialization compatible with older releases.
+            MethodInfo initializeSites = typeof(Landis.Library.Succession.ExtensionBase).GetMethod(
+                "InitializeSites",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                new[] { typeof(string), typeof(string), typeof(ICore) },
+                null);
+
+            if (initializeSites != null && !initializeSites.IsAbstract)
+            {
+                initializeSites.Invoke(this, new object[] { initialCommunities, initialCommunitiesMap, modelCore });
+            }
+        }
+
+        //---------------------------------------------------------------------
     }
 }
 

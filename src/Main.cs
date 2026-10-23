@@ -16,11 +16,11 @@ namespace Landis.Extension.Succession.NECN
     /// </summary>
     public class Main
     {
-        [ThreadStatic]
+        [System.ThreadStatic]
         public static int Year;
-        [ThreadStatic]
+        [System.ThreadStatic]
         public static int Month;
-        [ThreadStatic]
+        [System.ThreadStatic]
         public static int MonthCnt;
 
         /// <summary>
