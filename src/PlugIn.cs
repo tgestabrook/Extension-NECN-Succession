@@ -270,10 +270,9 @@ namespace Landis.Extension.Succession.NECN
 
 
         //---------------------------------------------------------------------
-        protected override void InitializeSite(ActiveSite site, ICommunity initialCommunity)
+        protected override void InitializeSite(ActiveSite site)
         {
             InitialBiomass initialBiomass = InitialBiomass.Compute(site, initialCommunity);
-            // retain the site-level initial biomass setup expected by NECN
         }
 
 
@@ -637,6 +636,41 @@ namespace Landis.Extension.Succession.NECN
         }
 
         //---------------------------------------------------------------------
+        public override void InitializeSites(string initialCommunitiesText, string initialCommunitiesMap, ICore modelCore)
+        {
+            ModelCore.UI.WriteLine("   Loading initial communities from file \"{0}\" ...", initialCommunitiesText);
+
+            Landis.Library.InitialCommunities.Universal.DatasetParser parser = new Landis.Library.InitialCommunities.Universal.DatasetParser(Timestep, ModelCore.Species, additionalCohortParameters, initialCommunitiesText);
+            Landis.Library.InitialCommunities.Universal.IDataset communities = Data.Load<Landis.Library.InitialCommunities.Universal.IDataset>(initialCommunitiesText, parser);
+
+            ModelCore.UI.WriteLine("   Reading initial communities map \"{0}\" ...", initialCommunitiesMap);
+            IInputRaster<UIntPixel> map;
+            map = ModelCore.OpenRaster<UIntPixel>(initialCommunitiesMap);
+            using (map)
+            {
+                UIntPixel pixel = map.BufferPixel;
+                foreach (Site site in ModelCore.Landscape.AllSites)
+                {
+                    map.ReadBufferPixel();
+                    uint mapCode = pixel.MapCode.Value;
+                    if (!site.IsActive)
+                        continue;
+
+                    ActiveSite activeSite = (ActiveSite)site;
+                    SiteVars.MineralN[site] = Parameters.InitialMineralN;
+
+                    initialCommunity = communities.Find(mapCode);
+                    if (initialCommunity == null)
+                    {
+                        SiteVars.Cohorts[site] = new SiteCohorts();
+                    }
+                    else
+                    {
+                        InitializeSite(activeSite);
+                    }
+                }
+            }
+        }
     }
 }
 
