@@ -638,20 +638,10 @@ namespace Landis.Extension.Succession.NECN
         //---------------------------------------------------------------------
         public override void InitializeSites(string initialCommunities, string initialCommunitiesMap, ICore modelCore)
         {
-            // Newer Landis.Library.Succession packages require this override explicitly.
-            // If the base library provides a concrete implementation, invoke it;
-            // otherwise, keep the NECN extension initialization compatible with older releases.
-            MethodInfo initializeSites = typeof(Landis.Library.Succession.ExtensionBase).GetMethod(
-                "InitializeSites",
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                null,
-                new[] { typeof(string), typeof(string), typeof(ICore) },
-                null);
-
-            if (initializeSites != null && !initializeSites.IsAbstract)
-            {
-                initializeSites.Invoke(this, new object[] { initialCommunities, initialCommunitiesMap, modelCore });
-            }
+            // Let the base succession class do its normal site setup.
+            // This is required to initialize the succession site variables used by other extensions
+            // such as harvest management.
+            base.InitializeSites(initialCommunities, initialCommunitiesMap, modelCore);
         }
 
         //---------------------------------------------------------------------
