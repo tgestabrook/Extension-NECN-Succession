@@ -600,8 +600,42 @@ namespace Landis.Extension.Succession.NECN
                 SpeciesBySerotiny[species.Index]++;
             else if (reproductionType == "resprout")
                 SpeciesByResprout[species.Index]++;
+            else if (reproductionType == "seed")
+                SpeciesBySeed[species.Index]++;
         }
 
+        //---------------------------------------------------------------------
+        public CohortData ComputeCohortData(ushort age, int biomass, double anpp, ExpandoObject parametersToAdd)
+        {
+            IDictionary<string, object> tempObject = parametersToAdd;
+
+            int newBiomass = Convert.ToInt32(tempObject["LeafBiomass"]) + Convert.ToInt32(tempObject["WoodBiomass"]);
+
+            return new CohortData(age, newBiomass, anpp, parametersToAdd);
+        }
+
+        //---------------------------------------------------------------------
+        /// <summary>
+        /// Determines if a species can establish at a site.
+        /// This is a Delegate method to base succession.
+        /// </summary>
+        public bool Establish(ISpecies species, ActiveSite site)
+        {
+            double establishmentProbability = Establishment.Calculate(species, site);
+            return modelCore.GenerateUniform() < establishmentProbability;
+        }
+
+        //---------------------------------------------------------------------
+        /// <summary>
+        /// Determines if there is a mature cohort at a site.
+        /// This is a Delegate method to base succession.
+        /// </summary>
+        public bool MaturePresent(ISpecies species, ActiveSite site)
+        {
+            return SiteVars.Cohorts[site].IsMaturePresent(species);
+        }
+
+        //---------------------------------------------------------------------
         public override void InitializeSites(string initialCommunities, string initialCommunitiesMap, ICore modelCore)
         {
             // Newer Landis.Library.Succession packages require this override explicitly.
