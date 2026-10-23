@@ -25,7 +25,7 @@ namespace Landis.Extension.Succession.NECN
         private static ICore modelCore;
         public static IInputParameters Parameters;
         //public static double[] ShadeLAI;
-        [ThreadStatic]
+        [System.ThreadStatic]
         public static double AnnualWaterBalance;
 
         public static string SoilCarbonMapNames = null;
@@ -270,9 +270,10 @@ namespace Landis.Extension.Succession.NECN
 
 
         //---------------------------------------------------------------------
-        protected override void InitializeSite(ActiveSite site)
+        protected override void InitializeSite(ActiveSite site, ICommunity initialCommunity)
         {
             InitialBiomass initialBiomass = InitialBiomass.Compute(site, initialCommunity);
+            // retain the site-level initial biomass setup expected by NECN
         }
 
 
@@ -633,15 +634,6 @@ namespace Landis.Extension.Succession.NECN
         public bool MaturePresent(ISpecies species, ActiveSite site)
         {
             return SiteVars.Cohorts[site].IsMaturePresent(species);
-        }
-
-        //---------------------------------------------------------------------
-        public override void InitializeSites(string initialCommunities, string initialCommunitiesMap, ICore modelCore)
-        {
-            // Let the base succession class do its normal site setup.
-            // This is required to initialize the succession site variables used by other extensions
-            // such as harvest management.
-            base.InitializeSites(initialCommunities, initialCommunitiesMap, modelCore);
         }
 
         //---------------------------------------------------------------------
