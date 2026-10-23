@@ -9,6 +9,7 @@ using Landis.Library.UniversalCohorts;
 using Landis.Library.Climate;
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Reflection;
@@ -21,6 +22,30 @@ namespace Landis.Extension.Succession.NECN
     public class PlugIn
         : Landis.Library.Succession.ExtensionBase
     {
+        private sealed class ThreadSpeciesCounts
+        {
+            public int[] Plant;
+            public int[] Serotiny;
+            public int[] Resprout;
+            public int[] Seed;
+
+            public ThreadSpeciesCounts(int speciesCount)
+            {
+                Plant = new int[speciesCount];
+                Serotiny = new int[speciesCount];
+                Resprout = new int[speciesCount];
+                Seed = new int[speciesCount];
+            }
+        }
+
+        private static readonly ConcurrentBag<ThreadSpeciesCounts> SpeciesCountStates = new ConcurrentBag<ThreadSpeciesCounts>();
+        private static readonly ThreadLocal<ThreadSpeciesCounts> ThreadSpeciesCountsState = new ThreadLocal<ThreadSpeciesCounts>(() =>
+        {
+            var state = new ThreadSpeciesCounts(ModelCore != null ? ModelCore.Species.Count : 0);
+            SpeciesCountStates.Add(state);
+            return state;
+        });
+
         public static readonly string ExtensionName = "NECN Succession";
         private static ICore modelCore;
         public static IInputParameters Parameters;
@@ -102,6 +127,13 @@ namespace Landis.Extension.Succession.NECN
             Timestep = Parameters.Timestep;
             SuccessionTimeStep = Timestep;
             ProbEstablishAdjust = Parameters.ProbEstablishAdjustment;
+            SpeciesByPlant = new int[ModelCore.Species.Count];
+            SpeciesByResprout = new int[ModelCore.Species.Count];
+            SpeciesBySerotiny = new int[ModelCore.Species.Count];
+            SpeciesBySeed = new int[ModelCore.Species.Count];
+            SpeciesCountStates.Clear();
+            ThreadSpeciesCountsState.Value = new ThreadSpeciesCounts(ModelCore.Species.Count);
+            SpeciesCountStates.Add(ThreadSpeciesCountsState.Value);
             MetadataHandler.InitializeMetadata(Timestep, modelCore, SoilCarbonMapNames, SoilNitrogenMapNames, ANPPMapNames, ANEEMapNames, TotalCMapNames); 
 
             //FunctionalType.Initialize(Parameters);
@@ -222,14 +254,15 @@ namespace Landis.Extension.Succession.NECN
 
             ClimateRegionData.ClimateRegionAccumulator localAccumulator = new ClimateRegionData.ClimateRegionAccumulator(ModelCore.Ecoregions.Count);
 
-            // Parallelize the site-level succession updates.  Each active site has its own cohort and soil state,
-            // so growth is safe to run concurrently as long as the shared month/year tracking remains thread-local.
-            Parallel.ForEach(ModelCore.Landscape.ActiveSites, site =>
+            ResetParallelSpeciesCounts();
+            var activeSites = new List<ActiveSite>(ModelCore.Landscape.ActiveSites);
+            Parallel.ForEach(activeSites, site =>
             {
-                Main.Run(site, Timestep, true, localAccumulator);
+                Main.Run(site, 1, true, localAccumulator);
             });
 
             localAccumulator.Reduce();
+            MergeParallelSpeciesCounts();
 
             if (Timestep > 0)
                 ClimateRegionData.SetAllEcoregionsFutureAnnualClimate(ModelCore.CurrentTime);
@@ -532,12 +565,12 @@ namespace Landis.Extension.Succession.NECN
 
 
         //---------------------------------------------------------------------
-        // <summary>
+        /// <summary>
         /// Compute the amount of nursery log carbon based on its decay ratio
-        // W.Hotta & Chihiro Description: 
-        //     - In the process of decomposition of downed logs, 
-        //       the volume remains the same, only the density changes.
-        // </summary>
+        /// W.Hotta & Chihiro Description: 
+        ///     - In the process of decomposition of downed logs, 
+        ///       the volume remains the same, only the density changes.
+        /// </summary>
 
         private static double[] ComputeNurseryLogC(ActiveSite site, double densityDecayClass0, double densityDecayClass3, double densityDecayClass4, double densityDecayClass5)
         {
@@ -594,14 +627,15 @@ namespace Landis.Extension.Succession.NECN
 
             SiteVars.Cohorts[site].AddNewCohort(species, 1, Convert.ToInt32(initialBiomass[0] + initialBiomass[1]), 0, woodLeafBiomasses);
 
+            var counts = CurrentSpeciesCounts();
             if (reproductionType == "plant")
-                SpeciesByPlant[species.Index]++;
+                counts.Plant[species.Index]++;
             else if (reproductionType == "serotiny")
-                SpeciesBySerotiny[species.Index]++;
+                counts.Serotiny[species.Index]++;
             else if (reproductionType == "resprout")
-                SpeciesByResprout[species.Index]++;
+                counts.Resprout[species.Index]++;
             else if (reproductionType == "seed")
-                SpeciesBySeed[species.Index]++;
+                counts.Seed[species.Index]++;
         }
 
         //---------------------------------------------------------------------

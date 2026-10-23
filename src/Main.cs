@@ -16,12 +16,40 @@ namespace Landis.Extension.Succession.NECN
     /// </summary>
     public class Main
     {
-        [System.ThreadStatic]
-        public static int Year;
-        [System.ThreadStatic]
-        public static int Month;
-        [System.ThreadStatic]
-        public static int MonthCnt;
+        private sealed class ThreadContext
+        {
+            public int Year;
+            public int Month;
+            public int MonthCnt;
+            public double AnnualWaterBalance;
+        }
+
+        private static readonly ThreadLocal<ThreadContext> ThreadState =
+            new ThreadLocal<ThreadContext>(() => new ThreadContext());
+
+        public static int Year
+        {
+            get { return ThreadState.Value.Year; }
+            set { ThreadState.Value.Year = value; }
+        }
+
+        public static int Month
+        {
+            get { return ThreadState.Value.Month; }
+            set { ThreadState.Value.Month = value; }
+        }
+
+        public static int MonthCnt
+        {
+            get { return ThreadState.Value.MonthCnt; }
+            set { ThreadState.Value.MonthCnt = value; }
+        }
+
+        public static double AnnualWaterBalance
+        {
+            get { return ThreadState.Value.AnnualWaterBalance; }
+            set { ThreadState.Value.AnnualWaterBalance = value; }
+        }
 
         /// <summary>
         /// Grows all cohorts at a site for a specified number of years.
@@ -138,67 +166,50 @@ namespace Landis.Extension.Succession.NECN
                     // Calculate N allocation for each cohort
                     AvailableN.CalculateMonthlyMineralNallocation(site);
 
-                    //Drought vars
-                    //Update monthly temperature and soil water
-                    //TODO SF add to DroughtMortality class. This is mostly already duplicated in the drought climate spinup
                     if (DroughtMortality.UseDrought | DroughtMortality.OutputSoilWaterAvailable | DroughtMortality.OutputTemperature | DroughtMortality.OutputClimateWaterDeficit)
                     {
-                        //Initialize each year by adding a new list element
                         if (MonthCnt == 0)
                         {
-                            
                             SiteVars.SoilWater10[site].Add(0);
                             SiteVars.Temp10[site].Add(0);
-
                         }
 
-                        int list_index = SiteVars.SoilWater10[site].Count - 1; //track how many elements are in the climate lists, to avoid them growing too long
+                        int list_index = SiteVars.SoilWater10[site].Count - 1;
 
-                       if (summer.Contains(Month))
-                            {
-                                //add monthly temperatures
-                                SiteVars.Temp10[site][list_index] += ClimateRegionData.AnnualClimate[ecoregion].MonthlyTemp[Month];
-                            }
-                       //add monthly water content
+                        if (summer.Contains(Month))
+                        {
+                            SiteVars.Temp10[site][list_index] += ClimateRegionData.AnnualClimate[ecoregion].MonthlyTemp[Month];
+                        }
+
                         SiteVars.SoilWater10[site][list_index] += SiteVars.MeanSoilWater[site];
 
-                        //Do this just once a year, after CWD is calculated above
-                        if (MonthCnt == 11) //TODO fix this so we don't have to always calculate all of these vars when writing maps
+                        if (MonthCnt == 11)
                         {
                             SiteVars.CWD10[site].Add(SiteVars.AnnualClimaticWaterDeficit[site]);
-                            SiteVars.Temp10[site][list_index] /= summer.Length; //get monthly average temp
+                            SiteVars.Temp10[site][list_index] /= summer.Length;
                         }
                     }
 
                     if (DroughtMortality.UseDrought & MonthCnt == 11)
                     {
                         foreach (ISpecies species in PlugIn.ModelCore.Species)
-                        {//TODO could speed up by only looping thorugh species with drought parameters (skip ones with zeroes)
+                        {
                             DroughtMortality.ComputeDroughtLaggedVars(site, species);
                         }
                     }
-                    //End drought calculations
 
                     if (MonthCnt==11)
                         siteCohorts.Grow(site, (y == years && isSuccessionTimeStep), true);
                     else
                         siteCohorts.Grow(site, (y == years && isSuccessionTimeStep), false);
 
-                    // Track the grasses species LAI on the site
-                    // Chihiro 2021.03.30: tentative
                     SiteVars.MonthlyLAI_GrassesLastMonth[site] = SiteVars.MonthlyLAI_Grasses[site][Month];
 
                     WoodLayer.Decompose(site);
                     LitterLayer.Decompose(site);
                     SoilLayer.Decompose(site);
 
-                    // Volatilization loss as a function of the mineral N which remains after uptake by plants.  
-                    // ML added a correction factor for wetlands since their denitrification rate is double that of wetlands
-                    // based on a review paper by Seitziner 2006.
-
-                    double volatilize = (SiteVars.MineralN[site] * PlugIn.Parameters.DenitrificationRate); 
-
-                    //PlugIn.ModelCore.UI.WriteLine("BeforeVol.  MineralN={0:0.00}.", SiteVars.MineralN[site]);
+                    double volatilize = (SiteVars.MineralN[site] * PlugIn.Parameters.DenitrificationRate);
 
                     SiteVars.MineralN[site] -= volatilize;
                     SiteVars.SourceSink[site].Nitrogen += volatilize;
@@ -211,8 +222,7 @@ namespace Landis.Extension.Succession.NECN
                     SiteVars.MonthlyNEE[site][Month] += SiteVars.SourceSink[site].Carbon;
                 }
 
-                //Do this just once a year, after CWD is calculated above
-                if (DroughtMortality.UseDrought | DroughtMortality.OutputSoilWaterAvailable | DroughtMortality.OutputClimateWaterDeficit | DroughtMortality.OutputTemperature) //TODO fix this so we don't have to always calculate all of these vars when writing maps
+                if (DroughtMortality.UseDrought | DroughtMortality.OutputSoilWaterAvailable | DroughtMortality.OutputClimateWaterDeficit | DroughtMortality.OutputTemperature)
                 {
                     int year_index = PlugIn.ModelCore.CurrentTime - 1;
 
@@ -229,14 +239,13 @@ namespace Landis.Extension.Succession.NECN
                 if (DroughtMortality.UseDrought)
                 {
                     foreach (ISpecies species in PlugIn.ModelCore.Species)
-                    {//TODO could speed up by only looping thorugh species with drought parameters (skip ones with zeroes)
+                    {
                         DroughtMortality.ComputeDroughtLaggedVars(site, species);
                     }
                 }
 
                 SiteVars.FineFuels[site] = (SiteVars.SurfaceStructural[site].Carbon + SiteVars.SurfaceMetabolic[site].Carbon) * 2.0;
             }
-
 
             ComputeTotalCohortCN(site, siteCohorts);
 
