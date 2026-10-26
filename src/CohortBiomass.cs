@@ -572,7 +572,7 @@ namespace Landis.Extension.Succession.NECN
             {
                 // Divide allocation N by N demand here:
                 //PlugIn.ModelCore.UI.WriteLine("  WoodNPP={0:0.00}, LeafNPP={1:0.00}, FineRootNPP={2:0.00}, CoarseRootNPP={3:0.00}.", WoodNPP, LeafNPP);
-               double Ndemand = (AvailableN.CalculateCohortNDemand(site, cohort, new double[] { WoodNPP, LeafNPP})); 
+               double Ndemand = (AvailableN.CalculateCohortNDemand(site, cohort, WoodNPP, LeafNPP)); 
 
                 if (Ndemand > 0.0)
                 {

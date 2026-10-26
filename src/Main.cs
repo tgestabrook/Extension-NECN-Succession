@@ -121,25 +121,23 @@ namespace Landis.Extension.Succession.NECN
                     //Drought vars
                     //Update monthly temperature and soil water
                     //TODO SF add to DroughtMortality class. This is mostly already duplicated in the drought climate spinup
-                    if (DroughtMortality.UseDrought | DroughtMortality.OutputSoilWaterAvailable | DroughtMortality.OutputTemperature | DroughtMortality.OutputClimateWaterDeficit)
+                    if (DroughtMortality.TrackClimateMetrics)
                     {
                         //Initialize each year by adding a new list element
                         if (MonthCnt == 0)
                         {
-                            
                             SiteVars.SoilWater10[site].Add(0);
                             SiteVars.Temp10[site].Add(0);
-
                         }
 
                         int list_index = SiteVars.SoilWater10[site].Count - 1; //track how many elements are in the climate lists, to avoid them growing too long
 
-                       if (summer.Contains(Month))
-                            {
-                                //add monthly temperatures
-                                SiteVars.Temp10[site][list_index] += ClimateRegionData.AnnualClimate[ecoregion].MonthlyTemp[Month];
-                            }
-                       //add monthly water content
+                        if (summer.Contains(Month))
+                        {
+                            //add monthly temperatures
+                            SiteVars.Temp10[site][list_index] += ClimateRegionData.AnnualClimate[ecoregion].MonthlyTemp[Month];
+                        }
+                        //add monthly water content
                         SiteVars.SoilWater10[site][list_index] += SiteVars.MeanSoilWater[site];
 
                         //Do this just once a year, after CWD is calculated above
