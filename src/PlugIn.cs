@@ -420,38 +420,24 @@ namespace Landis.Extension.Succession.NECN
             if (!SpeciesData.NurseLog_depend[species])
                 return isSufficientlight;
 
-            double nurseryLogAvailabilityModifier = 2.0; // tuning parameter (only even)
-            double nurseryLogAvailability = 1 - Math.Pow(ComputeNurseryLogAreaRatio(species, site) - 1, nurseryLogAvailabilityModifier);
-            if (OtherData.CalibrateMode)
+            ActiveSite activeSite = site;
+            if (SiteVars.NurseryLogAreaRatioCache.TryGetValue(activeSite, out double cachedRatio))
             {
-                ModelCore.UI.WriteLine("original_lightProbability:{0},{1},{2}", ModelCore.CurrentTime, species.Name, lightProbability);
-                ModelCore.UI.WriteLine("siteLAI:{0}", SiteVars.LAI[site]);
-            }
-
-            // Case 1. CWD-dependent species (species which can only be established on nursery log)
-            if (SpeciesData.NurseLog_depend[species]) // W.Hotta (2021.08.01)
-            {
+                double nurseryLogAvailabilityModifier = 2.0;
+                double nurseryLogAvailability = 1 - Math.Pow(cachedRatio - 1, nurseryLogAvailabilityModifier);
                 lightProbability *= nurseryLogAvailability;
                 isSufficientlight = modelCore.GenerateUniform() < lightProbability;
                 if (isSufficientlight) regenType = "nurse_log";
-            }
-            // Case 2. CWD-independent species (species which can be established on both forest floor & nursery log)
-            else
-            {
-                // 1. Can the cohort establish on forest floor? (lightProbability is considering both Tree and Grass species)
-                if (modelCore.GenerateUniform() < lightProbability)
-                {
-                    isSufficientlight = true;
-                    regenType = "surface";
-                }
-                if (OtherData.CalibrateMode)
-                {
-                    ModelCore.UI.WriteLine("nurseryLogPenalty:{0},{1},{2}", ModelCore.CurrentTime, species.Name, nurseryLogAvailability);
-                    ModelCore.UI.WriteLine("modified_lightProbability:{0},{1},{2}", ModelCore.CurrentTime, species.Name, lightProbability);
-                    ModelCore.UI.WriteLine("regeneration_type:{0},{1},{2}", ModelCore.CurrentTime, species.Name, regenType);
-                }
+                return isSufficientlight;
             }
 
+            double nurseryLogAvailabilityModifier = 2.0; // tuning parameter (only even)
+            double nurseryLogAreaRatio = ComputeNurseryLogAreaRatio(species, site);
+            SiteVars.NurseryLogAreaRatioCache[activeSite] = nurseryLogAreaRatio;
+            double nurseryLogAvailability = 1 - Math.Pow(nurseryLogAreaRatio - 1, nurseryLogAvailabilityModifier);
+            lightProbability *= nurseryLogAvailability;
+            isSufficientlight = modelCore.GenerateUniform() < lightProbability;
+            if (isSufficientlight) regenType = "nurse_log";
             return isSufficientlight;
         }
 

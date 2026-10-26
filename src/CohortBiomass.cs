@@ -48,7 +48,7 @@ namespace Landis.Extension.Succession.NECN
 
             ecoregion = PlugIn.ModelCore.Ecoregion[site];
 
-            int siteBiomass = Main.ComputeLivingBiomass(SiteVars.Cohorts[site]);
+            int siteBiomass = (int)SiteVars.LiveBiomass[site];
 
             // First call to the Calibrate Log:
             if (PlugIn.ModelCore.CurrentTime > 0 && OtherData.CalibrateMode)
