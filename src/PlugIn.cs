@@ -423,9 +423,9 @@ namespace Landis.Extension.Succession.NECN
             ActiveSite activeSite = site;
             if (SiteVars.NurseryLogAreaRatioCache.TryGetValue(activeSite, out double cachedRatio))
             {
-                double nurseryLogAvailabilityModifier = 2.0;
-                double nurseryLogAvailability = 1 - Math.Pow(cachedRatio - 1, nurseryLogAvailabilityModifier);
-                lightProbability *= nurseryLogAvailability;
+                double cachedNurseryLogAvailabilityModifier = 2.0;
+                double cachedNurseryLogAvailability = 1 - Math.Pow(cachedRatio - 1, cachedNurseryLogAvailabilityModifier);
+                lightProbability *= cachedNurseryLogAvailability;
                 isSufficientlight = modelCore.GenerateUniform() < lightProbability;
                 if (isSufficientlight) regenType = "nurse_log";
                 return isSufficientlight;
@@ -490,12 +490,12 @@ namespace Landis.Extension.Succession.NECN
 
 
         //---------------------------------------------------------------------
-        // <summary>
+        /// <summary>
         /// Compute the amount of nursery log carbon based on its decay ratio
-        // W.Hotta & Chihiro Description: 
-        //     - In the process of decomposition of downed logs, 
-        //       the volume remains the same, only the density changes.
-        // </summary>
+        /// W.Hotta & Chihiro Description: 
+        ///     - In the process of decomposition of downed logs, 
+        ///       the volume remains the same, only the density changes.
+        /// </summary>
 
         private static double[] ComputeNurseryLogC(ActiveSite site, double densityDecayClass0, double densityDecayClass3, double densityDecayClass4, double densityDecayClass5)
         {
