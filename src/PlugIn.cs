@@ -396,7 +396,6 @@ namespace Landis.Extension.Succession.NECN
             string regenType = "failed"; // Identify where the cohort established; Chihiro
             //SF regenType is only used in CalibrateMode
 
-            var random = new Troschuetz.Random.TRandom();
             double a = SpeciesData.LightLAIShape[species];
             double b = SpeciesData.LightLAIScale[species];
             double c = SpeciesData.LightLAILocation[species];
